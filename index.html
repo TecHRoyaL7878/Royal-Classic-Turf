@@ -162,7 +162,7 @@ button{touch-action:manipulation}
 <script>
 (()=>{
 'use strict';
-const WEB_APP_URL='https://script.google.com/macros/s/AKfycbzhPHDoDNXc75uZJsw6f2iAsyyRjuJG0QXysFeEDn2RsJDa149gWZ49Vv7ULJ7aE9Zi5g/exec';
+const WEB_APP_URL='PASTE_YOUR_EXEC_URL_HERE'https://script.google.com/macros/s/AKfycbzhPHDoDNXc75uZJsw6f2iAsyyRjuJG0QXysFeEDn2RsJDa149gWZ49Vv7ULJ7aE9Zi5g/exec';
 const HOUR=3600000,DAY=86400000,$=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,'0');
 const localDay=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -177,10 +177,19 @@ const isSunday=s=>new Date(s+'T12:00:00').getDay()===0;
 const intersects=(a,b,c,d)=>a<d&&c<b;
 let token='',admin=false,calendarMonth=new Date(),publicResult=null,adminResult=null;
 let data={bookings:[],holidays:{},announcements:[]};calendarMonth.setDate(1);
-function rpc(name,...args){return new Promise((ok,no)=>{
-  if(!window.google?.script?.run){no(new Error('To sync across phones, publish this HTML as Index in Google Apps Script and open the deployed web app: '+WEB_APP_URL));return}
-  google.script.run.withSuccessHandler(ok).withFailureHandler(no)[name](...args);
-})}
+async function rpc(name,...args){
+  let res;
+  try{
+    res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({fn:name,args})});
+  }catch(e){
+    throw new Error('Cannot reach the server. Check your internet connection.');
+  }
+  let j;
+  try{ j=await res.json(); }
+  catch(e){ throw new Error('Server error. Check the deployment settings (Anyone can access) and redeploy a New version.'); }
+  if(!j.ok) throw new Error(j.error||'Request failed');
+  return j.result;
+}
 function report(err,id='status'){const target=$(id);if(target)target.textContent=err.message||String(err);else alert(err.message||String(err))}
 function fromPublic(r){publicResult=r; data.bookings=(r.bookings||[]).map(x=>({id:x['Booking ID'],start:midnight(dmyToIso(x['Booking Date']))+minutes(x['Start Time'])*60000,end:midnight(dmyToIso(x['Booking Date']))+minutes(x['End Time'])*60000,customer:x['Customer Name']}));data.holidays=Object.fromEntries((r.holidays||[]).map(x=>[dmyToIso(x.Date),true]));data.announcements=(r.announcements||[]).map(x=>({id:x['Announcement ID'],title:x.Title,message:x.Description}));}
 async function refresh(){try{const date=formatDate($('date').value);fromPublic(await rpc('getPublicData',date));render()}catch(e){report(e,'annStatus');$('scheduleInfo').textContent=e.message||String(e)}}
